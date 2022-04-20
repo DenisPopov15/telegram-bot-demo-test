@@ -1,7 +1,8 @@
 const TelegramBot = require('node-telegram-bot-api')
-const { TELEGRAM_BOT_TOKEN } = process.env
+const { TELEGRAM_BOT_TOKEN, PORTMONE_TOKEN } = process.env
 
 const web_app = { url: 'https://google.com' }
+// https://t.me/durgerkingbot?startattach
 
 class TelegramService {
   constructor (config, logger) {
@@ -17,7 +18,7 @@ class TelegramService {
   async _setChatMenuButton (chatId) {
     const menu = {
       type: 'web_app',
-      text: 'Order',
+      text: 'Order!',
       web_app
     }
 
@@ -28,14 +29,87 @@ class TelegramService {
     await this._bot._request('setChatMenuButton', { form })
   }
 
+  async sendInvoice(chatId) {
+    const CENTS_IN_UAH = 100
+    const form = {
+      need_phone_number: true,
+      need_shipping_address: true,
+      max_tip_amount: 100 * CENTS_IN_UAH,
+      suggested_tip_amounts: [10 * CENTS_IN_UAH, 20 * CENTS_IN_UAH, 50 * CENTS_IN_UAH, 100 * CENTS_IN_UAH],
+      // need_name: true,
+      // need_email: true,
+      photo_url: 'https://png.pngtree.com/element_our/20190530/ourmid/pngtree-box-full-of-goods-image_1252285.jpg',
+      // photo_width: 100,
+      // photo_height: 100,
+    }
+    const title = 'Best Product'
+    const description = 'The best what can happens with you'
+    const payload = JSON.stringify({ someData: 'data' })
+    const currency = 'UAH'
+    const providerToken = PORTMONE_TOKEN
+    const prices = [
+      { label: 'Boxes', amount: 150 * CENTS_IN_UAH },
+      { label: 'Delivery', amount: 50 * CENTS_IN_UAH },
+    ]
+
+    // Will be used if will be clicked from forwarded message
+    // const startParameter = 'https://t.me/DenysDevTestBot?start=ded'
+    const startParameter = null
+
+    const result = await this._bot.sendInvoice(
+      chatId,
+      title,
+      description,
+      payload,
+      providerToken,
+      startParameter,
+      currency,
+      prices,
+      form
+    )
+
+    return result
+  }
+
+  async proceedInvoice(preCheckout) {
+    const ok = true
+    const result = await this._bot.answerPreCheckoutQuery(preCheckout.id, ok)
+    if (result === true) {
+      this._logger.info('Payment sent')
+    } else {
+      this._logger.info('Payment not proceeded', result)
+    }
+  }
+
+  async proceedSuccessfulPaymnet(msg) {
+    const { message_id, from, date, successful_payment } = msg
+    this._logger.info('Payment successfully executed')
+  }
+
+  listenOnPreCheckOut() {
+    this._bot.on('pre_checkout_query', async (msg) => {
+      // this._logger.info('pre_checkout_query', msg)
+      await this.proceedInvoice(msg)
+
+    })
+  }
+
   listenOnMessage () {
     this._bot.on('message', async (msg) => {
       const chatId = msg.chat.id
-      const { text, message_id, from, contact } = msg
+      const { text, message_id, from, contact, successful_payment } = msg
       this._logger.info('MESSAGE', msg)
+
+      if (successful_payment) {
+        await this.proceedSuccessfulPaymnet(msg)
+      }
 
       if (text && text.startsWith('sss')) {
         await this._setChatMenuButton(chatId)
+      }
+
+      if (text && text.startsWith('iii')) {
+        await this.sendInvoice(chatId)
       }
 
       if (text && text.startsWith('ddd')) {

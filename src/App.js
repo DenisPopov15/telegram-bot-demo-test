@@ -87,6 +87,7 @@ class App {
   async initializeTelegramBot() {
     const telegramService = new TelegramService(this.config, this._logger)
     telegramService.listenOnMessage()
+    telegramService.listenOnPreCheckOut()
 
     this.telegramService = telegramService
   }
