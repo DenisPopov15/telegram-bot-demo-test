@@ -1,5 +1,6 @@
 const TelegramBot   = require('node-telegram-bot-api')
 const CryptoService = require('./CryptoService')
+const ApiService    = require('./ApiService')
 const { TELEGRAM_BOT_TOKEN, PORTMONE_TOKEN } = process.env
 
 const web_app = { url: 'https://google.com' }
@@ -16,7 +17,7 @@ class TelegramService {
   }
 
   // TODO: Check why its not works as expected
-  async _setChatMenuButton (chatId) {
+  async _setChatMenuButton(chatId) {
     const menu = {
       type: 'web_app',
       text: 'Order!',
@@ -28,6 +29,37 @@ class TelegramService {
       menu_button: menu
     }
     await this._bot._request('setChatMenuButton', { form })
+  }
+
+  async answerWebAppQuery(msg) {
+    const { web_app_data } = msg
+    const webAppResponse = JSON.parse(web_app_data.data)
+    const { initData, data } = webAppResponse
+
+    const { isVerified, error, data: initDataObject } = this.validateInitData(initData)
+    if (!isVerified) {
+      throw Error(error)
+    }
+
+    const { query_id } = initDataObject
+
+    const result = {
+      type: 'article',
+      title: 'Cool, Title',
+      id: query_id,
+      input_message_content: { message_text: 'Cool, message_text' },
+    }
+
+    const params = {
+      web_app_query_id: query_id,
+      result
+    }
+
+    const apiService = new ApiService('', {})
+    const url = this._bot._buildURL('answerWebAppQuery')
+    const response = await apiService.execute(url, 'POST', params)
+    return response
+    // const response = await this._bot._request('answerWebAppQuery', { form: params })
   }
 
   validateInitData(initData) {
@@ -129,11 +161,15 @@ class TelegramService {
   listenOnMessage () {
     this._bot.on('message', async (msg) => {
       const chatId = msg.chat.id
-      const { text, message_id, from, contact, successful_payment } = msg
+      const { text, message_id, from, contact, successful_payment, web_app_data } = msg
       this._logger.info('MESSAGE', msg)
 
       if (successful_payment) {
         await this.proceedSuccessfulPaymnet(msg)
+      }
+
+      if (web_app_data) {
+        await this.answerWebAppQuery(msg)
       }
 
       if (text && text.startsWith('sss')) {
