@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/DenisPopov15/telegram-bot-demo-test#readme",
   "dependencies": {
+    "cors": "^2.8.5",
     "dotenv": "^4.0.0",
     "express": "^4.15.2",
     "helmet": "^5.0.1",

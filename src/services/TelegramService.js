@@ -1,4 +1,5 @@
-const TelegramBot = require('node-telegram-bot-api')
+const TelegramBot   = require('node-telegram-bot-api')
+const CryptoService = require('./CryptoService')
 const { TELEGRAM_BOT_TOKEN, PORTMONE_TOKEN } = process.env
 
 const web_app = { url: 'https://google.com' }
@@ -27,6 +28,37 @@ class TelegramService {
       menu_button: menu
     }
     await this._bot._request('setChatMenuButton', { form })
+  }
+
+  validateInitData(initData) {
+    const EXPIRATION_IN_SECONDS = 2 * 60 * 60
+    const result = { isVerified: false, error: '', data: {} }
+    const initDataObject = Object.fromEntries(new URLSearchParams(initData))
+
+    const checkString = Object.keys(initDataObject)
+        .filter((key) => key !== 'hash')
+        .map((key) => `${key}=${initDataObject[key]}`)
+        .sort()
+        .join('\n')
+
+    const cryptoService = new CryptoService(this._logger)
+    const secretKey   = cryptoService.createHmacSha256(TELEGRAM_BOT_TOKEN, 'WebAppData')
+    const derivedHash = cryptoService.createHmacSha256(checkString, secretKey, 'hex')
+
+    if (initDataObject.hash !== derivedHash) {
+      result.error = 'Auth not valid'
+      return result
+    }
+
+    // const expiresAt = (initDataObject.auth_date + EXPIRATION_IN_SECONDS) * 1000
+    // if (expiresAt > Date.now()) {
+    //   result.error = 'Auth expired'
+    //   return result
+    // }
+
+    result.isVerified = true
+    result.data = initDataObject
+    return result
   }
 
   async sendInvoice(chatId) {
